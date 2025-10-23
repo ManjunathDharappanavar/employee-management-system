@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Attendance & Payroll System</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <div class="toast-container position-fixed top-0 end-0 p-3">
+            <div v-if="errorMessage" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-danger text-white">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong class="me-auto">Error</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    {{ errorMessage }}
+                </div>
+            </div>
+            <div v-if="successMessage" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-success text-white">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong class="me-auto">Success</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    {{ successMessage }}
+                </div>
+            </div>
+        </div>
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    <i class="fas fa-user-clock me-2"></i>
+                    Payroll System
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item" v-if="!isLoggedIn">
+                            <a class="nav-link" href="#" @click="showSignupModal">
+                                <i class="fas fa-user-plus me-1"></i> Sign Up
+                            </a>
+                        </li>
+                        <li class="nav-item" v-if="!isLoggedIn">
+                            <a class="nav-link" href="#" @click="showLoginModal">
+                                <i class="fas fa-sign-in-alt me-1"></i> Login
+                            </a>
+                        </li>
+                        <li class="nav-item" v-if="isLoggedIn">
+                            <a class="nav-link" href="#" @click="showProfile">
+                                <i class="fas fa-user-circle me-1"></i> Profile
+                            </a>
+                        </li>
+                        <li class="nav-item" v-if="isLoggedIn">
+                            <a class="nav-link" href="#" @click="logout">
+                                <i class="fas fa-sign-out-alt me-1"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div v-if="isLoggedIn">
+                <div class="row mt-4">
+                    <div class="col-md-12 mb-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                                </h5>
+                                <div>
+                                    <button class="btn btn-primary me-2" @click="markAttendance('Present')" v-if="attendanceStatus === 'Not Marked'">
+                                        <i class="fas fa-check me-1"></i> Mark Present
+                                    </button>
+                                    <button class="btn" :class="isOvertimeActive ? 'btn-danger' : 'btn-success'" @click="toggleOvertime">
+                                        <i :class="isOvertimeActive ? 'fas fa-stop' : 'fas fa-play'" class="me-1"></i>
+                                        {{ isOvertimeActive ? 'Stop Overtime' : 'Start Overtime' }}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="dashboard-card">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-calendar-check fa-2x"></i>
+                                                </div>
+                                                <div>
+                                                    <h6>Today's Attendance</h6>
+                                                    <h3>{{ attendanceStatus }}</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="dashboard-card">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-money-bill-wave fa-2x"></i>
+                                                </div>
+                                                <div>
+                                                    <h6>Monthly Salary</h6>
+                                                    <h3>${{ monthlySalary }}</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="dashboard-card">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-clock fa-2x"></i>
+                                                </div>
+                                                <div>
+                                                    <h6>Overtime Hours</h6>
+                                                    <h3>{{ overtimeHours }}</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="dashboard-card">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-hourglass-half fa-2x"></i>
+                                                </div>
+                                                <div>
+                                                    <h6>Current Overtime</h6>
+                                                    <h3>{{ currentOvertime }}</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-4">
+                                    <div class="col-md-12">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h5 class="card-title mb-0">
+                                                    <i class="fas fa-history me-2"></i>Overtime History
+                                                </h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="table-responsive">
+                                                    <table class="table table-hover">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Date</th>
+                                                                <th>Start Time</th>
+                                                                <th>End Time</th>
+                                                                <th>Duration</th>
+                                                                <th>Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr v-for="record in overtimeHistory" :key="record.id">
+                                                                <td>{{ record.date }}</td>
+                                                                <td>{{ record.start_time }}</td>
+                                                                <td>{{ formatTime(record.end_time) }}</td>
+                                                                <td>{{ formatDuration(record.duration) }}</td>
+                                                                <td>
+                                                                    <span :class="{
+                                                                        'badge bg-success': record.status === 'Completed',
+                                                                        'badge bg-warning': record.status === 'Active'
+                                                                    }">
+                                                                        {{ record.status }}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                            <tr v-if="overtimeHistory.length === 0">
+                                                                <td colspan="5" class="text-center">No overtime records found</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="welcome-section">
+                <h2>Welcome to Employee Attendance & Payroll System</h2>
+                <p>Manage your attendance and track your salary efficiently</p>
+                <div class="mt-4">
+                    <button class="btn btn-light btn-lg me-3" @click="showSignupModal">
+                        <i class="fas fa-user-plus me-2"></i>Sign Up
+                    </button>
+                    <button class="btn btn-outline-light btn-lg" @click="showLoginModal">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="loginModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="login">
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-envelope"></i>
+                                    </span>
+                                    <input type="email" class="form-control" v-model="loginForm.email" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                    <input :type="showPassword ? 'text' : 'password'" class="form-control" v-model="loginForm.password" required>
+                                    <button class="btn btn-outline-secondary" type="button" @click="showPassword = !showPassword">
+                                        <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" :disabled="loading">
+                                    <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <i class="fas fa-sign-in-alt me-2"></i>{{ loading ? 'Logging in...' : 'Login' }}
+                                </button>
+                            </div>
+                        </form>
+                        <div class="text-center mt-3">
+                            <p class="mb-0">Don't have an account? <a href="#" @click="switchToSignup">Sign up</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="signupModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-plus me-2"></i>Sign Up
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="signup">
+                            <div class="mb-3">
+                                <label class="form-label">Full Name</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-user"></i>
+                                    </span>
+                                    <input type="text" class="form-control" v-model="signupForm.name" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-envelope"></i>
+                                    </span>
+                                    <input type="email" class="form-control" v-model="signupForm.email" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                    <input :type="showSignupPassword ? 'text' : 'password'" class="form-control" v-model="signupForm.password" required minlength="6">
+                                    <button class="btn btn-outline-secondary" type="button" @click="showSignupPassword = !showSignupPassword">
+                                        <i :class="showSignupPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Password must be at least 6 characters long</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Base Salary</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </span>
+                                    <input type="number" class="form-control" v-model="signupForm.baseSalary" required min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" :disabled="loading">
+                                    <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <i class="fas fa-user-plus me-2"></i>{{ loading ? 'Signing up...' : 'Sign Up' }}
+                                </button>
+                            </div>
+                        </form>
+                        <div class="text-center mt-3">
+                            <p class="mb-0">Already have an account? <a href="#" @click="switchToLogin">Login</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="profileModalLabel">
+                            <i class="fas fa-user-circle me-2"></i>Employee Profile
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+
+                        <div v-if="loading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+
+                        <div v-else-if="profile" class="profile-content">
+                            <div class="profile-section">
+                                <h6 class="section-title">
+                                    <i class="fas fa-user me-2"></i>Basic Information
+                                </h6>
+                                <div class="profile-details">
+                                    <div class="detail-item">
+                                        <label><i class="fas fa-user me-2"></i>Name</label>
+                                        <p>{{ profile.name }}</p>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label><i class="fas fa-envelope me-2"></i>Email</label>
+                                        <p>{{ profile.email }}</p>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label><i class="fas fa-calendar-alt me-2"></i>Member Since</label>
+                                        <p>{{ profile.created_at }}</p>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label><i class="fas fa-id-card me-2"></i>Employee ID</label>
+                                        <p>{{ profile.id }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="profile-section">
+                                <h6 class="section-title">
+                                    <i class="fas fa-money-bill-wave me-2"></i>Salary Information
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="salary-card">
+                                            <div class="salary-icon base">
+                                                <i class="fas fa-dollar-sign"></i>
+                                            </div>
+                                            <div class="salary-info">
+                                                <label>Base Salary</label>
+                                                <p>${{ profile.base_salary }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="salary-card">
+                                            <div class="salary-icon overtime">
+                                                <i class="fas fa-clock"></i>
+                                            </div>
+                                            <div class="salary-info">
+                                                <label>Overtime Pay</label>
+                                                <p>${{ profile.overtime_pay }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="salary-card">
+                                            <div class="salary-icon total">
+                                                <i class="fas fa-calculator"></i>
+                                            </div>
+                                            <div class="salary-info">
+                                                <label>Total Monthly Salary</label>
+                                                <p>${{ profile.monthly_salary }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="profile-section">
+                                <h6 class="section-title">
+                                    <i class="fas fa-calendar-check me-2"></i>Attendance Information
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="attendance-card">
+                                            <div class="attendance-icon present">
+                                                <i class="fas fa-check-circle"></i>
+                                            </div>
+                                            <div class="attendance-info">
+                                                <label>Present Days</label>
+                                                <p>{{ profile.attendance.present_days }} / {{ profile.attendance.total_days }}</p>
+                                                <small class="text-success">{{ profile.attendance.percentage }}% Attendance</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="attendance-card">
+                                            <div class="attendance-icon absent">
+                                                <i class="fas fa-times-circle"></i>
+                                            </div>
+                                            <div class="attendance-info">
+                                                <label>Absent Days</label>
+                                                <p>{{ profile.attendance.absent_days }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="attendance-card">
+                                            <div class="attendance-icon overtime">
+                                                <i class="fas fa-clock"></i>
+                                            </div>
+                                            <div class="attendance-info">
+                                                <label>Total Overtime</label>
+                                                <p>{{ profile.attendance.total_overtime }} hours</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="attendance-card">
+                                            <div class="attendance-icon today">
+                                                <i class="fas fa-calendar-day"></i>
+                                            </div>
+                                            <div class="attendance-info">
+                                                <label>Today's Status</label>
+                                                <p :class="{'text-success': profile.attendance.today_status === 'Present', 'text-danger': profile.attendance.today_status === 'Absent', 'text-warning': profile.attendance.today_status === 'Not Marked'}">
+                                                    {{ profile.attendance.today_status }}
+                                                </p>
+                                                <small v-if="profile.attendance.today_check_in">
+                                                    Check-in: {{ profile.attendance.today_check_in }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            
+                            <div class="profile-section">
+                                <h6 class="section-title">
+                                    <i class="fas fa-history me-2"></i>Recent Attendance History
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Status</th>
+                                                <th>Check-in</th>
+                                                <th>Check-out</th>
+                                                <th>Overtime</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="record in profile.attendance.recent_history" :key="record.date">
+                                                <td>{{ record.date }}</td>
+                                                <td>
+                                                    <span :class="{'badge bg-success': record.status === 'Present', 'badge bg-danger': record.status === 'Absent'}">
+                                                        {{ record.status }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ record.check_in }}</td>
+                                                <td>{{ record.check_out }}</td>
+                                                <td>{{ record.overtime }} hours</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            
+                            <div class="profile-section">
+                                <h6 class="section-title">
+                                    <i class="fas fa-user-cog me-2"></i>Account Actions
+                                </h6>
+                                <button class="btn btn-danger" @click="showDeleteConfirmation">
+                                    <i class="fas fa-trash-alt me-2"></i>Delete Account
+                                </button>
+                            </div>
+                        </div>
+
+                        
+                        <div v-else class="text-center py-5">
+                            <i class="fas fa-exclamation-circle text-danger fa-3x mb-3"></i>
+                            <p class="text-danger">Failed to load profile data</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteConfirmModalLabel">
+                            <i class="fas fa-exclamation-triangle text-danger me-2"></i>Delete Account
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="hideDeleteConfirmation"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Warning: This action cannot be undone. All your data, including:
+                        </p>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="fas fa-user me-2"></i>Profile information
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-calendar-check me-2"></i>Attendance records
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-clock me-2"></i>Overtime history
+                            </li>
+                            <li class="list-group-item">
+                                <i class="fas fa-money-bill-wave me-2"></i>Salary information
+                            </li>
+                        </ul>
+                        <p class="mt-3">
+                            will be permanently deleted. Are you sure you want to proceed?
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="hideDeleteConfirmation">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-danger" @click="deleteAccount" :disabled="loading">
+                            <i class="fas fa-trash-alt me-2"></i>
+                            {{ loading ? 'Deleting...' : 'Delete Account' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+ 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="js/app.js"></script>
+
+    <style>
+    .profile-info {
+        padding: 20px;
+    }
+
+    .profile-header {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 20px;
+    }
+
+    .profile-header i {
+        color: #0d6efd;
+    }
+
+    .profile-details {
+        margin-top: 20px;
+    }
+
+    .detail-item {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+
+    .detail-item label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .detail-item p {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #333;
+    }
+
+    .detail-item i {
+        color: #0d6efd;
+    }
+
+    /* Modal Styles */
+    .modal-content {
+        border-radius: 15px;
+        border: none;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid #eee;
+        padding: 1.5rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        border-top: 1px solid #eee;
+        padding: 1.5rem;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .toast-container {
+        z-index: 9999;
+    }
+
+    .toast {
+        background-color: white;
+        border: none;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .toast-header {
+        border-bottom: none;
+    }
+
+    .toast-body {
+        padding: 1rem;
+    }
+
+    .btn-close-white {
+        filter: brightness(0) invert(1);
+    }
+
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-right: none;
+    }
+
+    .input-group .form-control {
+        border-left: none;
+    }
+
+    .input-group .btn-outline-secondary {
+        border-left: none;
+    }
+
+    .input-group .btn-outline-secondary:hover {
+        background-color: #f8f9fa;
+    }
+
+    .recent-attendance {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .recent-attendance table {
+        margin-bottom: 0;
+    }
+
+    .recent-attendance th {
+        font-size: 0.9rem;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .recent-attendance td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .attendance-info small {
+        display: block;
+        color: #666;
+        font-size: 0.8rem;
+        margin-top: 2px;
+    }
+
+    .attendance-card {
+        transition: transform 0.2s;
+    }
+
+    .attendance-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .salary-section {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .salary-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
+    }
+
+    .salary-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .salary-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+        font-size: 1.5rem;
+    }
+
+    .salary-icon.base {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .salary-icon.overtime {
+        background-color: #fff3e0;
+        color: #f57c00;
+    }
+
+    .salary-icon.total {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
+
+    .salary-info label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .salary-info p {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .account-actions {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .account-actions .btn-danger {
+        transition: all 0.3s ease;
+    }
+
+    .account-actions .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
+    }
+
+    #deleteConfirmModal .modal-content {
+        border: none;
+        border-radius: 15px;
+    }
+
+    #deleteConfirmModal .modal-header {
+        border-bottom: 2px solid #dc3545;
+    }
+
+    #deleteConfirmModal .list-group-item {
+        border-left: none;
+        border-right: none;
+    }
+
+    #deleteConfirmModal .list-group-item:first-child {
+        border-top: none;
+    }
+
+    #deleteConfirmModal .list-group-item:last-child {
+        border-bottom: none;
+    }
+
+    .profile-section {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        color: #495057;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+
+    .attendance-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
+    }
+
+    .attendance-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .attendance-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+        font-size: 1.5rem;
+    }
+
+    .attendance-icon.present {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .attendance-icon.absent {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+
+    .attendance-icon.overtime {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .attendance-icon.today {
+        background-color: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .attendance-info label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .attendance-info p {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .attendance-info small {
+        display: block;
+        margin-top: 5px;
+    }
+
+    .table th {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .table td {
+        vertical-align: middle;
+    }
+
+    .badge {
+        padding: 0.5em 0.75em;
+        font-weight: 500;
+    }
+    </style>
+</body>
+</html>
